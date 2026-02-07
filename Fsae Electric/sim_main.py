@@ -45,6 +45,10 @@ try:
     sort_idx = np.argsort(motor_rpm_data)
     motor_rpm_data = motor_rpm_data[sort_idx]
     motor_torque_data = motor_torque_data[sort_idx]
+
+    # Smooth the torque curve using moving average to make graph less noisy
+    window_size = 3
+    motor_torque_data = np.convolve(motor_torque_data, np.ones(window_size)/window_size, mode='same')
     
     print(f"Successfully loaded motor curve with {len(motor_rpm_data)} points.")
     print(f"Max RPM in data: {motor_rpm_data[-1]:.1f}, Max Torque: {motor_torque_data.max():.1f} Nm")
@@ -63,7 +67,7 @@ except FileNotFoundError:
             - right=0: If RPM exceeds our data size limit (e.g., >5433), assume 0 torque (rev limit)
 """
 def get_motor_torque(current_rpm):    
-    return np.interp(current_rpm, motor_rpm_data, motor_torque_data, right=0)
+    return np.interp(current_rpm, motor_rpm_data, motor_torque_data, right = None)
 
 
 """
@@ -270,10 +274,19 @@ plt.title('Speed over Time')
 plt.grid(True)
 
 # 3. Acceleration
+theoretical_motor_accel = ((torques * car.drive_ratio * car.efficiency / car.tire_radius) - 
+                          (0.5 * car.rho * car.frontal_area * car.cd * (v_final**2))) / car.mass / car.g
+
 plt.subplot(5, 2, 4)
-plt.plot(times, accel_long, label='Longitudinal', color='green')
-plt.plot(times, accel_lat, label='Lateral', color='red')
+# Plot the theoretical UNLIMITED acceleration in dashed line
+# plt.plot(times, theoretical_motor_accel, 'g--', label='Motor Potential', alpha=0.5)
+# Plot the actual LIMITED acceleration in solid line
+plt.plot(times, accel_long, 'g-', label='Actual Long. Accel')
+plt.plot(times, accel_lat, 'r-', label='Lat. Accel')
+
 plt.ylabel('Acceleration (G)')
+plt.legend()
+plt.grid(True)
 plt.title('Acceleration (G-G Diagram)')
 plt.legend()
 plt.grid(True)
